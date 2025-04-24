@@ -6,9 +6,9 @@ import streamlit as st
 from streamlit.logger import get_logger
 from chains import load_embedding_model
 from utils import create_constraints, create_vector_index
-from PIL import Image
 from datetime import datetime
-
+import json
+import streamlit as st
 load_dotenv(".env")
 
 url = os.getenv("NEO4J_URI")
@@ -21,7 +21,6 @@ os.environ["NEO4J_URL"] = url
 
 logger = get_logger(__name__)
 
-so_api_base_url = "https://api.stackexchange.com/2.3/search/advanced"
 
 embeddings, dimension = load_embedding_model(
     embedding_model_name, config={"ollama_base_url": ollama_base_url}, logger=logger
@@ -110,12 +109,12 @@ def insert_so_data(data: list) -> None:
             if key not in item:
                 raise ValueError(f"Отсутствует ключ: {key} в элементе данных {item}")
         if "start_date" in item and item["start_date"]:
-            item["start_date"] = int(datetime.strptime(item["start_date"], "%Y-%m-%d").timestamp())
+            item["start_date"] = item["start_date"]
         else:
             item["start_date"] = None  # Если дата не указана
 
         if "end_date" in item and item["end_date"]:
-            item["end_date"] = int(datetime.strptime(item["end_date"], "%Y-%m-%d").timestamp())
+            item["end_date"] = item["end_date"]
         else:
             item["end_date"] = None  # Если дата не указана
         text = item["description"]
@@ -189,8 +188,7 @@ def get_pages():
 #                 except Exception as e:
 #                     st.error(f"Error: {e}", icon="🚨")
 
-import json
-import streamlit as st
+
 
 def render_page():
     st.header("ESIMO Data Loader — Ввод событий вручную")
@@ -251,10 +249,10 @@ def render_page():
                     "id": event_data.get("identifier", ""),
                     "title": event_data["title"],
                     "link": event_data["link"],
-                    "start_date": int(datetime.strptime(event_data["start_date"], "%Y-%m-%d").timestamp()),
-                    "end_date": int(datetime.strptime(event_data["end_date"], "%Y-%m-%d").timestamp()),
+                    "start_date": int(datetime.strptime(event_data["start_date"].split("T")[0], "%Y-%m-%d").timestamp()),
+                    "end_date": int(datetime.strptime(event_data["end_date"].split("T")[0], "%Y-%m-%d").timestamp()),
                     "description": event_data["description"],
-                    "region": "Глобально",  # Пустое поле для региона, так как в JSON нет этого поля
+                    "region": "",  # Пустое поле для региона, так как в JSON нет этого поля
                     "embedding": embedding
                 })
             st.success("События успешно добавлены из файла!", icon="✅")

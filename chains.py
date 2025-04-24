@@ -1,14 +1,7 @@
-
-from langchain_openai import OpenAIEmbeddings
 from langchain_community.embeddings import OllamaEmbeddings
-from langchain_community.embeddings import BedrockEmbeddings
 from langchain_community.embeddings.sentence_transformer import SentenceTransformerEmbeddings
 
-from langchain_openai import ChatOpenAI
 from langchain_community.chat_models import ChatOllama
-from langchain_community.chat_models import BedrockChat
-
-from langchain_community.graphs import Neo4jGraph
 
 from langchain_community.vectorstores import Neo4jVector
 
@@ -23,7 +16,6 @@ from langchain.prompts import (
 
 from typing import List, Any
 from utils import BaseLogger, extract_region_and_data
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 
 def load_embedding_model(embedding_model_name: str, logger=BaseLogger(), config={}):
@@ -33,20 +25,6 @@ def load_embedding_model(embedding_model_name: str, logger=BaseLogger(), config=
         )
         dimension = 4096
         logger.info("Embedding: Using Ollama")
-    elif embedding_model_name == "openai":
-        embeddings = OpenAIEmbeddings()
-        dimension = 1536
-        logger.info("Embedding: Using OpenAI")
-    elif embedding_model_name == "aws":
-        embeddings = BedrockEmbeddings()
-        dimension = 1536
-        logger.info("Embedding: Using AWS")
-    elif embedding_model_name == "google-genai-embedding-001":        
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001"
-        )
-        dimension = 768
-        logger.info("Embedding: Using Google Generative AI Embeddings")
     else:
         embeddings = SentenceTransformerEmbeddings(
             model_name="all-MiniLM-L6-v2", cache_folder="/embedding_model"
@@ -57,20 +35,7 @@ def load_embedding_model(embedding_model_name: str, logger=BaseLogger(), config=
 
 
 def load_llm(llm_name: str, logger=BaseLogger(), config={}):
-    if llm_name == "gpt-4":
-        logger.info("LLM: Using GPT-4")
-        return ChatOpenAI(temperature=0, model_name="gpt-4", streaming=True)
-    elif llm_name == "gpt-3.5":
-        logger.info("LLM: Using GPT-3.5")
-        return ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo", streaming=True)
-    elif llm_name == "claudev2":
-        logger.info("LLM: ClaudeV2")
-        return BedrockChat(
-            model_id="anthropic.claude-v2",
-            model_kwargs={"temperature": 0.0, "max_tokens_to_sample": 1024},
-            streaming=True,
-        )
-    elif len(llm_name):
+    if len(llm_name):
         logger.info(f"LLM: Using Ollama: {llm_name}")
         return ChatOllama(
             temperature=0,
@@ -82,14 +47,14 @@ def load_llm(llm_name: str, logger=BaseLogger(), config={}):
             top_p=0.3,  # Higher value (0.95) will lead to more diverse text, while a lower value (0.5) will generate more focused text.
             num_ctx=3072,  # Sets the size of the context window used to generate the next token.
         )
-    logger.info("LLM: Using GPT-3.5")
-    return ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo", streaming=True)
+    logger.info("LLM: No LLM")
+    return
 
 
 def configure_llm_only_chain(llm):
     # LLM only response
     template = """
-    You are a helpful assistant that helps a support agent with answering programming questions.
+    You are a helpful assistant that helps a support agent with answering weather, prognosing and climate questions.
     If you don't know the answer, just say that you don't know, you must not make up an answer. Answer only in Russian
     """
     system_message_prompt = SystemMessagePromptTemplate.from_template(template)
@@ -119,7 +84,7 @@ def configure_qa_rag_chain(llm, embeddings, embeddings_store_url, username, pass
     You should prefer information from the most relevant regions.
     Make sure to rely on information from the data entries to provide accurate responses.
     When you find particular data in the context useful, make sure to cite it in the answer using the link.
-    If you don't know the answer, just say that you don't know, don't try to make up an answer. Answer only in russian
+    If you don't know the answer, just say that you don't know, don't try to make up an answer. Answer only in Russian
     ----
     {summaries}
     ----
@@ -128,7 +93,7 @@ def configure_qa_rag_chain(llm, embeddings, embeddings_store_url, username, pass
     You can only use links to the regions that are present in the context and always
     add links to the end of the answer in the style of citations.
     Generate concise answers with a references sources section of links to 
-    relevant regions only at the end of the answer. Answer only in russian
+    relevant regions only at the end of the answer. Dont make up any extra data. Answer only in Russian
     """
     general_user_template = "Question:```{question}```"
     messages = [

@@ -128,8 +128,8 @@ def display_chat():
 
 
 def mode_select() -> str:
-    options = ["Отключено", "Включено"]
-    return st.radio("Выберите режим RAG", options, horizontal=True)
+    options = ["Только Ollama", "Ollama + граф"]
+    return st.radio("Выберите режим", options, horizontal=True)
 
 
 name = mode_select()

@@ -95,7 +95,7 @@
                 </div>
                 <form class="rounded-md w-full bg-white p-2 m-0" on:submit|preventDefault={send}>
                     <input
-                        placeholder="What coding related question can I help you with?"
+                        placeholder="С каким погодным вопросом вам помочь?"
                         disabled={$chatStore.state === chatStates.RECEIVING}
                         class="text-lg w-full bg-white focus:outline-none px-4"
                         bind:value={question}
