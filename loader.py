@@ -4,18 +4,25 @@ from dotenv import load_dotenv
 from langchain_community.graphs import Neo4jGraph
 import streamlit as st
 from streamlit.logger import get_logger
-from chains import load_embedding_model
-from utils import create_constraints, create_vector_index
 from datetime import datetime
 import json
 import streamlit as st
 load_dotenv(".env")
-
+from chains import (
+    load_embedding_model,
+    load_llm
+)
+from utils import (
+    create_constraints,
+    create_vector_index,
+    BaseLogger,
+)
 url = os.getenv("NEO4J_URI")
 username = os.getenv("NEO4J_USERNAME")
 password = os.getenv("NEO4J_PASSWORD")
 ollama_base_url = os.getenv("OLLAMA_BASE_URL")
 embedding_model_name = os.getenv("EMBEDDING_MODEL")
+llm_name = os.getenv("LLM") or "llama3"
 # Remapping for Langchain Neo4j integration
 os.environ["NEO4J_URL"] = url
 
@@ -32,7 +39,28 @@ neo4j_graph = Neo4jGraph(url=url, username=username, password=password)
 create_constraints(neo4j_graph)
 create_vector_index(neo4j_graph, dimension)
 
-
+llm = load_llm(
+    llm_name, logger=BaseLogger(), config={"ollama_base_url": ollama_base_url}
+)
+def generate_region(description: str) -> str:
+    """Генерирует регион на основе описания события с помощью локальной Ollama"""
+    
+    prompt = f"""
+    Определи, в каком регионе России происходит это событие, на основе описания.
+    Ответь только названием региона (например, "Москва", "Санкт-Петербург", 
+    "Краснодарский край"). Можешь так же писать нзавание моря, федельного округа или океана. Если не можешь определить, верни "Неизвестно".
+    
+    Описание события: {description}
+    Регион:
+    """
+    
+    try:
+        region = llm.invoke(prompt)
+        return region.content.strip()  # Убираем лишние кавычки и пробелы
+    except Exception as e:
+        st.error(f"Ошибка при генерации региона: {e}")
+        return "Неизвестно"
+    
 # def load_so_data(tag: str = "neo4j", page: int = 1) -> None:
 #     parameters = (
 #         f"?pagesize=100&page={page}&order=desc&sort=creation&answers=1&tagged={tag}"
@@ -252,7 +280,7 @@ def render_page():
                     "start_date": int(datetime.strptime(event_data["start_date"].split("T")[0], "%Y-%m-%d").timestamp()),
                     "end_date": int(datetime.strptime(event_data["end_date"].split("T")[0], "%Y-%m-%d").timestamp()),
                     "description": event_data["description"],
-                    "region": "",  # Пустое поле для региона, так как в JSON нет этого поля
+                    "region": generate_region(event_data["description"]),  # генерируем
                     "embedding": embedding
                 })
             st.success("События успешно добавлены из файла!", icon="✅")

@@ -9,7 +9,7 @@
     import Modal from "./lib/Modal.svelte";
     import { generationStore } from "./lib/generation.store";
 
-    let ragMode = false;
+    let ragMode = true;
     let question = "Отправь мне сводный бюллетень по районам ДВ морей";
     let shouldAutoScroll = true;
     let input;
@@ -95,7 +95,7 @@
                 </div>
                 <form class="rounded-md w-full bg-white p-2 m-0" on:submit|preventDefault={send}>
                     <input
-                        placeholder="С каким погодным вопросом вам помочь?"
+                        placeholder="Напишите какие данные и в каком регионе вас интересуют"
                         disabled={$chatStore.state === chatStates.RECEIVING}
                         class="text-lg w-full bg-white focus:outline-none px-4"
                         bind:value={question}

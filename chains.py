@@ -110,31 +110,37 @@ def configure_qa_rag_chain(llm, embeddings, embeddings_store_url, username, pass
 
     # Vector + Knowledge Graph response
     kg = Neo4jVector.from_existing_index(
-        embedding=embeddings,
-        url=embeddings_store_url,
-        username=username,
-        password=password,
-        database="neo4j",  # neo4j by default
-        index_name="region_data",  # renamed index
-        text_node_property="description",  # renamed property
-        retrieval_query="""
-        WITH node AS data, score AS similarity
-        CALL  { 
-            WITH data
-            MATCH (data)-[:LOCATED_IN]->(region)
-            WITH region
-            ORDER BY coalesce(region.relevance, 0) DESC
-            WITH collect(region)[..2] as regions
-            RETURN reduce(str='', region IN regions | str + 
-                    '\n### Region: '+ coalesce(region.name, 'Unknown') + 
-                    ' (Relevance: ' + coalesce(toString(region.relevance), '0') + '): ' + 
-                    coalesce(region.description, 'No description available') + '\n') as regionTexts
-        } 
-        RETURN '##Data: ' + coalesce(data.title, 'No title available') + '\n' + 
-            coalesce(data.description, 'No description available') + '\n' + 
-            regionTexts AS text, similarity as score, {source: coalesce(data.link, 'No link available')} AS metadata
-        ORDER BY similarity ASC
-        """,
+    embedding=embeddings,
+    url=embeddings_store_url,
+    username=username,
+    password=password,
+    database="neo4j",
+    index_name="region_data",
+    text_node_property="description",  # Индексируем по description
+    retrieval_query="""
+    WITH node AS data, score AS similarity
+    OPTIONAL MATCH (data)-[:LOCATED_IN]->(region)
+    WITH 
+        data, 
+        similarity,
+        collect(region) AS regions
+    RETURN 
+        '## Title: ' + coalesce(data.title, 'No title') + '\n' +
+        '## Description: ' + coalesce(data.description, 'No description') + '\n' +
+        '## Regions: ' + 
+        CASE WHEN size(regions) > 0 
+             THEN reduce(str='', r IN regions | str + '\n- ' + coalesce(r.name, 'Unknown')) 
+             ELSE 'No regions' 
+        END AS text,
+        similarity AS score,
+        {
+            source: coalesce(data.link, ''),
+            start_date: coalesce(apoc.temporal.format(data.start_date, 'yyyy-MM-dd'), ''),
+            end_date: coalesce(apoc.temporal.format(data.end_date, 'yyyy-MM-dd'), ''),
+            regions: [r IN regions | r.name]
+        } AS metadata
+    ORDER BY similarity DESC
+    """
     )
 
     kg_qa = RetrievalQAWithSourcesChain(
