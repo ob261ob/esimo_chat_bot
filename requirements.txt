@@ -1,7 +1,4 @@
-openai
 python-dotenv
-wikipedia
-tiktoken
 neo4j
 streamlit
 sentence_transformers==2.2.2
@@ -11,10 +8,9 @@ PyPDF2
 torch==2.0.1
 pydantic
 uvicorn
-sse-starlette
-boto3
+sse_starlette
+starlette==0.27.0
+python-multipart==0.0.6
+httpx==0.24.1
 datetime
-# missing from the langchain base image?
-langchain-openai
-langchain-community
-langchain-google-genai
+

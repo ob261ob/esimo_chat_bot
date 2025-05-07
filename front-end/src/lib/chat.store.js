@@ -1,6 +1,6 @@
 import { writable } from "svelte/store";
 
-const API_ENDPOINT = "https://installation-confidentiality-meetings-lay.trycloudflare.com/query-stream";
+const API_ENDPOINT = "https://api.esimochatbot.ru/query-stream";
 
 export const chatStates = {
     IDLE: "idle",
