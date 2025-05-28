@@ -1,6 +1,7 @@
 *
 !*.py
 !requirements.txt
+!requirements_extra.txt
 !images/*
 !front-end/*
 front-end/node_modules/*

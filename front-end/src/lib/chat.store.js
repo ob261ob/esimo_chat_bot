@@ -9,7 +9,7 @@ export const chatStates = {
 
 function createChatStore() {
     const { subscribe, update } = writable({ state: chatStates.IDLE, data: [] });
-
+    
     function addMessage(from, text, rag) {
         const newId = Math.random().toString(36).substring(2, 9);
         update((state) => {
@@ -38,7 +38,7 @@ function createChatStore() {
         });
     }
 
-    async function send(question, ragMode = false) {
+    async function send(question, ragMode) {
         if (!question.trim().length) {
             return;
         }
@@ -69,7 +69,7 @@ function createChatStore() {
             update((state) => ({ ...state, state: chatStates.IDLE }));
         }
     }
-
+    addMessage("bot", "Привет! Я чат-бот, который поможет тебе с поиском ресурсов веб-портала ЕСИМО. Я работаю в трёх режимах: 'disable' - отвечать будет только языковая модель Ollama, 'enable' - отвечать будет та же языковая модель, только с векторным поиском среди ресурсов ЕСИМО, 'attribute' - в разработке", null);
     return {
         subscribe,
         send,

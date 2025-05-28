@@ -206,7 +206,7 @@ services:
     container_name: cloudflared-tunnel
     image: cloudflare/cloudflared
     restart: unless-stopped
-    command: tunnel  --hostname esimochatbot.ru --url http://front-end:8505 run  # Используем IPv4 вместо localhost
+    command: tunnel  --hostname esimochatbot.ru --url http://localhost:8505 run  # Используем IPv4 вместо localhost
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     networks:
@@ -216,7 +216,7 @@ services:
     container_name: api-cloudflared-tunnel
     image: cloudflare/cloudflared
     restart: unless-stopped
-    command: tunnel --hostname api.esimochatbot.ru --url http://api:8504/ run
+    command: tunnel --hostname api.esimochatbot.ru --url http://localhost:8504/ run
     environment:
       - TUNNEL_TOKEN=${API_TUNNEL_TOKEN}
     networks:

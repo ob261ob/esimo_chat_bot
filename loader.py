@@ -122,32 +122,44 @@ def generate_region(description: str) -> str:
 #     """
 #     neo4j_graph.query(import_query, {"data": data["items"]})
 
-
 def insert_so_data(data: list) -> None:
-    # Убедитесь, что данные — это список словарей
     if not isinstance(data, list):
         raise ValueError("Ожидается список данных.")
-    
-    # Пример проверки, чтобы убедиться, что элементы в списке — это словари с нужными ключами
-    for item in data:
+
+    if len(data) == 0:
+        st.warning("Список данных пуст.")
+        return
+
+    progress_bar = st.progress(0, text="Подготовка данных...")
+
+    processed_data = []
+    for idx, item in enumerate(data):
         if not isinstance(item, dict):
             raise ValueError("Каждый элемент данных должен быть словарем.")
+        
         required_keys = ["id", "title", "link", "start_date", "end_date", "description", "region", "embedding"]
         for key in required_keys:
             if key not in item:
                 raise ValueError(f"Отсутствует ключ: {key} в элементе данных {item}")
-        if "start_date" in item and item["start_date"]:
-            item["start_date"] = item["start_date"]
-        else:
-            item["start_date"] = None  # Если дата не указана
 
-        if "end_date" in item and item["end_date"]:
-            item["end_date"] = item["end_date"]
-        else:
-            item["end_date"] = None  # Если дата не указана
-        text = item["description"]
-        item["embedding"] = embeddings.embed_query(text)
-    # Cypher-запрос для импорта данных
+        # Обновляем embedding заново
+        item["embedding"] = embeddings.embed_query(item["title"])
+
+        # Обработка региона
+        raw_region = item.get("region", "")
+        clean_region = raw_region.strip("[]")
+        region_list = [r.strip() for r in clean_region.split(",") if r.strip()]
+        item["region_list"] = region_list
+
+        processed_data.append(item)
+
+        # 🔽 Показываем, что импортируется
+        st.markdown(f"➡️ Импортируется: **{item['title']}**")
+
+        progress = int((idx + 1) / len(data) * 50)
+        progress_bar.progress(progress, text=f"Подготовка: {progress}%")
+
+    # Цикл импорта в Neo4j
     import_query = """
     UNWIND $data AS item
     MERGE (data:Data {id: item.id})
@@ -158,12 +170,22 @@ def insert_so_data(data: list) -> None:
         data.end_date = datetime({epochSeconds: item.end_date}), 
         data.description = item.description, 
         data.embedding = item.embedding
-    MERGE (region:Region {name: item.region})
+    WITH data, item.region_list AS regions
+    UNWIND regions AS region_name
+    MERGE (region:Region {name: region_name})
     MERGE (data)-[:LOCATED_IN]->(region)
     """
 
-    # Выполняем запрос в Neo4j
-    neo4j_graph.query(import_query, {"data": data})
+    batch_size = 10
+    for i in range(0, len(processed_data), batch_size):
+        batch = processed_data[i:i+batch_size]
+        neo4j_graph.query(import_query, {"data": batch})
+        progress = 50 + int((i + batch_size) / len(processed_data) * 50)
+        progress_bar.progress(min(progress, 100), text=f"Импорт: {min(progress, 100)}%")
+
+    progress_bar.progress(100, text="Импорт завершён ✅")
+
+
 
 
 
@@ -268,11 +290,13 @@ def render_page():
 
     if uploaded_file:
         try:
-            # Чтение данных из загруженного JSON файла
             file_data = json.load(uploaded_file)
-            for event_data in file_data:
-                # Преобразуем данные и добавляем в события
-                embedding = embeddings.embed_query(event_data["title"])  # Заполняем embedding
+            progress_bar = st.progress(0)
+            total = len(file_data)
+
+            for idx, event_data in enumerate(file_data):
+                # embedding = embeddings.embed_query(event_data["title"])  # Заполняем embedding
+                embedding = ""
                 st.session_state["events"].append({
                     "id": event_data.get("identifier", ""),
                     "title": event_data["title"],
@@ -280,14 +304,18 @@ def render_page():
                     "start_date": int(datetime.strptime(event_data["start_date"].split("T")[0], "%Y-%m-%d").timestamp()),
                     "end_date": int(datetime.strptime(event_data["end_date"].split("T")[0], "%Y-%m-%d").timestamp()),
                     "description": event_data["description"],
-                    "region": generate_region(event_data["description"]),  # генерируем
+                    "region": event_data.get("geographic_coverage", {}).get("geo_object_name", "Неизвестно"),
                     "embedding": embedding
                 })
+                progress_bar.progress((idx + 1) / total)
+
+            progress_bar.empty()
             st.success("События успешно добавлены из файла!", icon="✅")
         except json.JSONDecodeError:
             st.error("Ошибка при чтении файла. Убедитесь, что файл в формате JSON.")
         except Exception as e:
             st.error(f"Произошла ошибка: {e}")
+
 
     # Кнопка для импорта всех событий
     if st.button("Импортировать все события"):

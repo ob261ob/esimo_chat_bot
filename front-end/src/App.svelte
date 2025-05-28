@@ -9,16 +9,26 @@
     import Modal from "./lib/Modal.svelte";
     import { generationStore } from "./lib/generation.store";
 
-    let ragMode = true;
+    // Изменяем на строковый тип для трех вариантов
+    let ragMode = "enabled"; // 'enabled', 'disabled', 'attribute'
     let question = "Отправь мне сводный бюллетень по районам ДВ морей";
     let shouldAutoScroll = true;
     let input;
     let senderImages = { bot: botImage, me: meImage };
     let generationModalOpen = false;
-
+    
     function send() {
+        // Преобразуем строковое значение в boolean для совместимости с chatStore
+        // const ragBool = ragMode === "enabled" ? true : 
+        //                ragMode === "disabled" ? false : null;
         chatStore.send(question, ragMode);
         question = "";
+    }
+
+    function handleAttributeMode() {
+        // Логика для специального режима Attribute
+        console.log("Attribute mode selected");
+        // Здесь можно добавить специальную обработку
     }
 
     function scrollToBottom(node, _) {
@@ -41,7 +51,6 @@
         await tick();
         node.focus();
     }
-    // send();
 </script>
 
 <main class="h-full text-sm bg-gradient-to-t from-indigo-100 bg-fixed overflow-hidden">
@@ -72,7 +81,7 @@
                         {#if message.from === "bot"}
                             <div class="text-sm">
                                 <div>Model: {message.model ? message.model : ""}</div>
-                                <div>RAG: {message.rag ? "Enabled" : "Disabled"}</div>
+                                <div>RAG: {message.rag ? message.rag : ""}</div>
                             </div>
                         {/if}
                     </div>
@@ -84,12 +93,15 @@
             <div class="shadow-lg bg-indigo-50 rounded-lg w-4/5 xl:w-2/3 2xl:w-1/2 mx-auto">
                 <div class="rounded-t-lg px-4 py-2 font-light">
                     <div class="font-semibold">RAG mode</div>
-                    <div class="">
-                        <label class="mr-2">
-                            <input type="radio" bind:group={ragMode} value={false} /> Disabled
+                    <div class="flex items-center gap-4">
+                        <label class="flex items-center gap-1">
+                            <input type="radio" bind:group={ragMode} value="disabled" /> Disabled
                         </label>
-                        <label>
-                            <input type="radio" bind:group={ragMode} value={true} /> Enabled
+                        <label class="flex items-center gap-1">
+                            <input type="radio" bind:group={ragMode} value="enabled" /> Enabled
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="radio" bind:group={ragMode} value="attribute" /> Attribute
                         </label>
                     </div>
                 </div>
@@ -107,6 +119,7 @@
         </div>
     </div>
 </main>
+
 {#if generationModalOpen}
     <Modal title="my title" text="my text" on:close={() => (generationModalOpen = false)} />
 {/if}

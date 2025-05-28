@@ -1,5 +1,6 @@
 .env
 data/
+data2/
 embedding_model/*
 !embedding_model/.ignore
 .DS_Store

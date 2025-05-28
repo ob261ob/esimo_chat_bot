@@ -1,4 +1,7 @@
 import os
+import sys
+import traceback
+import logging
 
 from langchain_community.graphs import Neo4jGraph
 from dotenv import load_dotenv
@@ -16,6 +19,8 @@ from chains import (
     load_llm,
     configure_qa_rag_chain,
     generate_ticket,
+    configure_attr_search_chain,
+    extract_attributes
 )
 
 from fastapi import FastAPI, Depends
@@ -57,8 +62,10 @@ llm_chain = configure_llm_only_chain(llm)
 rag_chain = configure_qa_rag_chain(
     llm, embeddings, embeddings_store_url=url, username=username, password=password
 )
-
-
+# attr_search_chain = configure_attr_search_chain(
+#     llm, embeddings, embeddings_store_url=url, username=username, password=password, region=
+# )
+extract_func = extract_attributes(llm)
 class QueueCallback(BaseCallbackHandler):
     """Callback handler for streaming LLM responses to a queue."""
 
@@ -107,6 +114,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def catch_exceptions():
+    def handle_exception(exc_type, exc_value, exc_traceback):
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+        print("Uncaught exception", exc_type, exc_value)
+        traceback.print_tb(exc_traceback)
+
+    sys.excepthook = handle_exception
 
 @app.get("/")
 async def root():
@@ -115,7 +132,7 @@ async def root():
 
 class Question(BaseModel):
     text: str
-    rag: bool = False
+    rag: str = ''
 
 
 class BaseTicket(BaseModel):
@@ -124,11 +141,27 @@ class BaseTicket(BaseModel):
 
 @app.get("/query-stream")
 def qstream(question: Question = Depends()):
-    output_function = llm_chain
-    if question.rag:
-        output_function = rag_chain
-
     q = Queue()
+
+    if question.rag == "attribute":
+        region, _, essence = extract_func(question.text)
+        output_function = configure_attr_search_chain(
+    llm, embeddings, embeddings_store_url=url, username=username, password=password, region=region
+)
+        def cb():
+            output_function(
+                {"question": essence, "chat_history": []},
+                callbacks=[QueueCallback(q)],
+        )
+        def generate():
+            yield json.dumps({"init": True, "model": llm_name})
+            for token, _ in stream(cb, q):
+                yield json.dumps({"token": token})
+        return EventSourceResponse(generate(), media_type="text/event-stream")
+    elif question.rag=="enabled":
+        output_function = rag_chain
+    elif question.rag=="disabled":
+        output_function = llm_chain
 
     def cb():
         output_function(
@@ -147,8 +180,10 @@ def qstream(question: Question = Depends()):
 @app.get("/query")
 async def ask(question: Question = Depends()):
     output_function = llm_chain
-    if question.rag:
+    if question.rag=="enabled":
         output_function = rag_chain
+    elif question.rag=="attribute":
+        output_function = attr_chain
     result = output_function(
         {"question": question.text, "chat_history": []}, callbacks=[]
     )
